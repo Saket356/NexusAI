@@ -4,6 +4,8 @@ import { getMemory, addMessage } from "../config/memory.js"
 
 export const agent = async (req, res) => {
   try {
+    const file = req.file
+   
     const { prompt, conversationId, agent: selectedAgent } = req.body
     const userId = req.headers["x-user-id"]
 
@@ -29,7 +31,9 @@ export const agent = async (req, res) => {
       prompt,
       conversationId,
       history,
-      agent: selectedAgent || "auto"
+      agent: selectedAgent || "auto",
+      userId,
+      file
     })
 
     const response = result.aiResponse
@@ -46,11 +50,10 @@ export const agent = async (req, res) => {
 
     return res.status(200).json({ response, images, artifacts })
   } catch (error) {
-    console.log(
-      "agent error:",
-      error.response?.status,
-      error.response?.data || error.message
-    )
+    
+      console.error("AGENT ERROR:", error.message)
+
+    
     return res.status(500).json({ message: `agent error ${error.message}` })
   }
 }

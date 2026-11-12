@@ -2,9 +2,10 @@ import { getModel } from "../config/llmModels.js"
 import { generatePdf } from "../utils/generatePdf.js"
 import { getFromS3 } from "../utils/getFromS3.js"
 import { uploadToS3 } from "../utils/uploadToS3.js"
-
+import { deductCredits } from "../utils/deductCredits.js"
 export const pdfAgent = async (state) => {
     try {
+       
         const llm = await getModel("pdf")
 
         const prompt = `
@@ -45,6 +46,7 @@ ${state.prompt}
 `
 
         const res = await llm.invoke(prompt)
+         await deductCredits(state.userId,"pdf")
        //console.log("1. llm raw response received")
 
         const raw = String(res.content)

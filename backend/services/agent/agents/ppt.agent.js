@@ -2,9 +2,10 @@ import { getModel } from "../config/llmModels.js"
 import { generatePpt } from "../utils/generatePpt.js"
 import { uploadToS3 } from "../utils/uploadToS3.js"
 import { getFromS3 } from "../utils/getFromS3.js"
-
+import { deductCredits } from "../utils/deductCredits.js"
 export const pptAgent = async (state) => {
     try {
+       
         const llm = await getModel("ppt")
 
         const prompt = `
@@ -41,6 +42,7 @@ ${state.prompt}
 `
 
         const res = await llm.invoke(prompt)
+          await deductCredits(state.userId,"ppt")
         console.log("1. llm response received")
 
         const raw = String(res.content)

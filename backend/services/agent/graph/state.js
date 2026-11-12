@@ -9,4 +9,6 @@ export const agentState = Annotation.Root({
   searchResults:Annotation(),
   images:Annotation(), //because we used images true in earch tool
   artifacts:Annotation(),
+  userId:Annotation(),
+  file:Annotation()
 })

@@ -1,8 +1,10 @@
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages"
 import { getModel } from "../config/llmModels.js"
+import { deductCredits } from "../utils/deductCredits.js"
 
 export const chatAgent = async (state) => {
   try {
+    
     const llm = await getModel("chat")
 
     const baseSystemPrompt = `
@@ -63,6 +65,7 @@ End with a short conclusion.
     })
 
     const response = await llm.invoke(messages)
+     await deductCredits(state.userId,"chat")
 
     return {
       aiResponse: response.content,

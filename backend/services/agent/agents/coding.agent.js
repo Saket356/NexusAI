@@ -1,5 +1,5 @@
 import { getModel } from "../config/llmModels.js"
-
+import { deductCredits } from "../utils/deductCredits.js"
 // models sometimes wrap JSON in code fences or add stray text
 const parseFiles = (text) => {
     const files = []
@@ -20,6 +20,7 @@ const parseFiles = (text) => {
 
 export const codingAgent = async (state) => {
     try {
+       
         // Step 1: classify the request
         const intentLlm = await getModel("intent")
 
@@ -95,6 +96,7 @@ ${state.prompt}
 `
 
             const res = await llm.invoke(prompt)
+            await deductCredits(state.userId,"coding")
             const files = parseFiles(res.content)
             console.log("coding output length:", String(res.content).length)
             console.log("finish reason:", res.response_metadata?.finishReason || res.response_metadata?.finish_reason)

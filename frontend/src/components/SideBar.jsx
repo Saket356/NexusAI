@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import BillingDrawer from './BillingDrawer'
+import api from '../../utils/axios'
+import { setMessages, setArtifacts } from '../redux/messageSlice'
+
 
 import {
     Coins,
@@ -34,14 +38,22 @@ const SideBar = () => {
 
     const [imageError, setImageError] = useState(false)
 
+    const [showbilling, setShowbilling] = useState(false)
+    const userKey = userData?._id || userData?.userId || userData?.email
+
     useEffect(() => {
+        if (!userData) {
+            dispatch(setConversations([]))
+            return
+        }
+
         const getConv = async () => {
             const data = await getConversations()
             dispatch(setConversations(data || []))
         }
 
         getConv()
-    }, [dispatch])
+    }, [dispatch, userKey])
 
     useEffect(() => {
         setImageError(false)
@@ -55,6 +67,56 @@ const SideBar = () => {
             dispatch(setSelectedConversation(data))
         }
     }
+
+    const handleLogout = () => {
+        logOut()
+        dispatch(setUserdata(null))
+        dispatch(setConversations([]))
+        dispatch(setSelectedConversation(null))
+        dispatch(setMessages([]))
+        dispatch(setArtifacts([]))
+    }
+
+    const handleBuyPlan = async (planId) => {
+        try {
+            const { data } = await api.post('/api/payment/create-order', { plan: planId })
+
+            const options = {
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: data.order.amount,
+                currency: data.order.currency,
+                name: 'NexusAI',
+                description: `${data.plan.name} plan`,
+                order_id: data.order.id,
+                handler: async (response) => {
+                    try {
+                        await api.post('/api/billing/verify', {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                        })
+
+                        dispatch(setUserdata({
+                            ...userData,
+                            plan: planId,
+                            credits: (userData?.credits || 0) + data.plan.credits,
+                            totalCredits: (userData?.totalCredits || 0) + data.plan.credits,
+                        }))
+                        setShowbilling(false)
+                    } catch (error) {
+                        console.log('verify payment error:', error)
+                    }
+                },
+            }
+
+            new window.Razorpay(options).open()
+        } catch (error) {
+            console.log('buy plan error:', error)
+        }
+    }
+
+    const planName = userData?.plan || 'free'
+    const planLabel = `${planName.charAt(0).toUpperCase()}${planName.slice(1)} Plan`
 
     if (collapsed) {
         return (
@@ -141,7 +203,7 @@ const SideBar = () => {
                     </span>
 
                     <span className="text-[10px] font-medium text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full tracking-wide">
-                        free
+                        {planName}
                     </span>
 
                     <button
@@ -247,13 +309,14 @@ const SideBar = () => {
                                 </p>
 
                                 <p className="truncate text-[11px] text-slate-500">
-                                    {"Free Plan"}
+                                    {planLabel}
                                 </p>
                             </div>
 
                             <div className="flex gap-1 shrink-0">
 
                                 <button
+                                    onClick={() => setShowbilling(true)}
                                     type="button"
                                     aria-label="Credits"
                                     className="flex items-center justify-center w-7 h-7 rounded-[7px] border-none bg-transparent text-yellow-600 cursor-pointer hover:bg-white/[0.08] hover:text-slate-400 transition-all duration-150"
@@ -265,10 +328,7 @@ const SideBar = () => {
                                     type="button"
                                     aria-label="Log out"
                                     className="flex items-center justify-center w-7 h-7 rounded-[7px] border-none bg-transparent text-slate-600 cursor-pointer hover:bg-white/[0.08] hover:text-slate-400 transition-all duration-150"
-                                    onClick={() => {
-                                        logOut()
-                                        dispatch(setUserdata(null))
-                                    }}
+                                    onClick={handleLogout}
                                 >
                                     <LogOut size={16} />
                                 </button>
@@ -283,6 +343,15 @@ const SideBar = () => {
                 </div>
 
             </div>
+
+            <BillingDrawer
+                open={showbilling}
+                onClose={() => setShowbilling(false)}
+                onSelectPlan={handleBuyPlan}
+            />
+
+
+
         </div>
     )
 }

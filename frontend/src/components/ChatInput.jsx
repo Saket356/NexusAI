@@ -6,6 +6,7 @@ import { createConversation } from '../features/createConversation'
 import { updateConversation } from '../features/updateConversation'
 import { addMessage, setArtifacts } from '../redux/messageSlice'
 import { addConversation, setConvTitle, setSelectedConversation } from '../redux/conversationSlice'
+import { useRef } from 'react'
 
 // ids must match the names used by the router / graph on the backend
 const agents = [
@@ -24,7 +25,8 @@ const ChatInput = () => {
   const [selectedAgent, setSelectedAgent] = useState('auto')
   const dispatch = useDispatch()
   const { selectedConversation } = useSelector((state) => state.conversation)
-
+  const [selectedFile,setselectedFile]=useState(null)
+  const fileRef=useRef(null)
   const handleSendMessage = async () => {
     const prompt = value.trim()
     if (!prompt || loading) return
@@ -60,14 +62,15 @@ const ChatInput = () => {
         role: 'user',
         content: prompt
       }))
+console.log(selectedFile)
+const formData=new FormData()
+formData.append("prompt",value.trim())
+formData.append("conversationId",conversation?._id)
+formData.append("agent",selectedAgent.toLowerCase())
+formData.append("file",selectedFile)
 
-      const payload = {
-        prompt,
-        conversationId: conversation._id,
-        agent: selectedAgent
-      }
-
-      const data = await sendMessage(payload)
+      const data = await sendMessage(formData)
+     
 
       if (!data) {
         console.log('no response from agent')
@@ -139,7 +142,16 @@ const ChatInput = () => {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
+            <input type="file" accept='.pdf,image/*' hidden ref={fileRef} onChange={(e)=>{
+              const file=e.target.files[0]
+              if(file)
+              {
+                  setselectedFile(file)
+              }
+              
+            }}/>
             <button
+              onClick={()=>fileRef.current.click()}
               type="button"
               aria-label="Attach file"
               className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06] transition-all duration-150 bg-transparent cursor-pointer"

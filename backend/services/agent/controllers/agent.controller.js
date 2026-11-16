@@ -2,7 +2,7 @@ import axios from "axios"
 import { graph } from "../graph/graph.js"
 import { getMemory, addMessage } from "../config/memory.js"
 
-export const agent = async (req, res) => {
+export const agent = async (req, res , next) => {
   try {
     const file = req.file
    
@@ -53,7 +53,7 @@ export const agent = async (req, res) => {
     
       console.error("AGENT ERROR:", error.message)
 
-    
-    return res.status(500).json({ message: `agent error ${error.message}` })
+     next(error)
+   // return res.status(500).json({ message: `agent error ${error.message}` })
   }
 }

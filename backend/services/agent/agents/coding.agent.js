@@ -1,3 +1,4 @@
+import { checkAgentLimit } from "../config/agentLimit.js"
 import { getModel } from "../config/llmModels.js"
 import { deductCredits } from "../utils/deductCredits.js"
 // models sometimes wrap JSON in code fences or add stray text
@@ -20,7 +21,8 @@ const parseFiles = (text) => {
 
 export const codingAgent = async (state) => {
     try {
-       
+        await checkAgentLimit(state.userId, "coding")
+
         // Step 1: classify the request
         const intentLlm = await getModel("intent")
 
@@ -96,7 +98,7 @@ ${state.prompt}
 `
 
             const res = await llm.invoke(prompt)
-            await deductCredits(state.userId,"coding")
+            await deductCredits(state.userId, "coding")
             const files = parseFiles(res.content)
             console.log("coding output length:", String(res.content).length)
             console.log("finish reason:", res.response_metadata?.finishReason || res.response_metadata?.finish_reason)
@@ -156,6 +158,12 @@ ${state.prompt}
         }
     } catch (error) {
         console.log("coding agent error:", error.message)
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
         return {
             aiResponse: "Something went wrong while generating the code. Please try again.",
             artifacts: [],

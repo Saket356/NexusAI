@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Code2, FileText, Globe, ImageIcon, MessagesSquare, Mic, Paperclip, Presentation, Send, Zap } from 'lucide-react'
+import { X , Code2, FileText, Globe, ImageIcon, MessagesSquare, Mic, Paperclip, Presentation, Send, Zap } from 'lucide-react'
 import sendMessage from '../features/sendMessage'
 import { createConversation } from '../features/createConversation'
 import { updateConversation } from '../features/updateConversation'
@@ -27,6 +27,19 @@ const ChatInput = () => {
   const { selectedConversation } = useSelector((state) => state.conversation)
   const [selectedFile,setselectedFile]=useState(null)
   const fileRef=useRef(null)
+
+
+
+  const [previewUrl, setPreviewUrl] = useState(null)
+
+useEffect(() => {
+  if (selectedFile && selectedFile.type.startsWith('image/')) {
+    const url = URL.createObjectURL(selectedFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }
+  setPreviewUrl(null)
+}, [selectedFile])
   const handleSendMessage = async () => {
     const prompt = value.trim()
     if (!prompt || loading) return
@@ -67,9 +80,12 @@ const formData=new FormData()
 formData.append("prompt",value.trim())
 formData.append("conversationId",conversation?._id)
 formData.append("agent",selectedAgent.toLowerCase())
-formData.append("file",selectedFile)
-
+if (selectedFile) formData.append("file", selectedFile)
+      setselectedFile(null)
+    if (fileRef.current) fileRef.current.value = ''
       const data = await sendMessage(formData)
+      
+      if (fileRef.current) fileRef.current.value = ''
      
 
       if (!data) {
@@ -129,6 +145,40 @@ formData.append("file",selectedFile)
             )
           })}
         </div>
+
+       {selectedFile && (
+  <div className="my-1">
+    <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-2 pr-3">
+      {previewUrl ? (
+        <img
+          src={previewUrl}
+          alt={selectedFile.name}
+          className="w-14 h-14 rounded-lg object-cover"
+        />
+      ) : (
+        <FileText size={16} className="text-red-400 ml-1" />
+      )}
+
+      {selectedFile.type === "application/pdf" && (
+  <span className="text-[12px] text-slate-300 max-w-[200px] truncate">
+    {selectedFile.name}
+  </span>
+)}
+
+      <button
+        type="button"
+        aria-label="Remove file"
+        onClick={() => {
+          setselectedFile(null)
+          if (fileRef.current) fileRef.current.value = ''
+        }}
+        className="flex items-center justify-center text-slate-500 hover:text-slate-200 bg-transparent border-none cursor-pointer"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  </div>
+)}
 
         <textarea
           value={value}

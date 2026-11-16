@@ -3,9 +3,10 @@ import { generatePdf } from "../utils/generatePdf.js"
 import { getFromS3 } from "../utils/getFromS3.js"
 import { uploadToS3 } from "../utils/uploadToS3.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { checkAgentLimit } from "../config/agentLimit.js"
 export const pdfAgent = async (state) => {
     try {
-       
+        await checkAgentLimit(state.userId, "pdf")
         const llm = await getModel("pdf")
 
         const prompt = `
@@ -46,8 +47,8 @@ ${state.prompt}
 `
 
         const res = await llm.invoke(prompt)
-         await deductCredits(state.userId,"pdf")
-       //console.log("1. llm raw response received")
+        await deductCredits(state.userId, "pdf")
+        //console.log("1. llm raw response received")
 
         const raw = String(res.content)
             .trim()
@@ -56,30 +57,36 @@ ${state.prompt}
             .trim()
 
         const data = JSON.parse(raw)
-       // console.log("2. parsed document, sections:", data.sections?.length)
+        // console.log("2. parsed document, sections:", data.sections?.length)
 
         const pdfBuffer = await generatePdf(data)
-       // console.log("3. pdf generated, bytes:", pdfBuffer.length)
+        // console.log("3. pdf generated, bytes:", pdfBuffer.length)
 
         const filename = `pdf-${Date.now()}.pdf`
         await uploadToS3(filename, pdfBuffer, "application/pdf")
-       // console.log("4. uploaded to S3:", filename)
+        // console.log("4. uploaded to S3:", filename)
 
         const downloadUrl = await getFromS3(filename, 24 * 60 * 60)
-       // console.log("5. signed url ready")
+        // console.log("5. signed url ready")
 
         return {
-    ...state,
-    aiResponse: `# PDF Generated
+            ...state,
+            aiResponse: `# PDF Generated
 
 **${data.title}**
 
 📥 [Download PDF](${downloadUrl})
 
 _Link expires in 24 hours._`
-}
+        }
     } catch (error) {
         console.log("pdf agent error:", error.message)
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
         return {
             aiResponse: "Failed to generate the document. Please try again."
         }

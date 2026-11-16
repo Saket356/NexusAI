@@ -3,9 +3,11 @@ import axios from "axios"
 import { uploadToS3 } from "../utils/uploadToS3.js"
 import { getFromS3 } from "../utils/getFromS3.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { checkAgentLimit } from "../config/agentLimit.js"
 export const visionAgent = async (state) => {
     try {
-       
+        await checkAgentLimit(state.userId, "image")
+
         const llm = await getModel("image")
         const res = await llm.invoke(
             `
@@ -33,9 +35,9 @@ ${state.prompt}
 
         const prompt = res.content.trim()
         const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`
-       // console.log(imageUrl)
+        // console.log(imageUrl)
         const imageRes = await axios.get(imageUrl, { responseType: "arraybuffer" })
-          await deductCredits(state.userId,"vision")
+        await deductCredits(state.userId, "vision")
         const buffer = Buffer.from(imageRes.data)
         //console.log(buffer)
         const filename = `image-${Date.now()}.png`
@@ -57,6 +59,12 @@ ${state.prompt}
         }
     } catch (error) {
         console.log("vision agent error:", error.response?.status, error.message)
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
         return {
             ...state,
             aiResponse: "Failed to generate image"

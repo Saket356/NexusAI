@@ -5,9 +5,12 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages"
 import { getModel } from "../config/llmModels.js"
 import { vectorStore } from "../config/vectorDb.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { checkAgentLimit } from "../config/agentLimit.js"
 
 export const pdfRag = async (state) => {
     try {
+        await checkAgentLimit(state.userId, "pdf")
+
         if (!state.file?.path) {
             return {
                 ...state,
@@ -81,6 +84,12 @@ Question:${state.prompt}
 
     } catch (error) {
         console.log("pdf rag error:", error.message)
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
         return {
             ...state,
             aiResponse: "Failed to Analyze pdf"

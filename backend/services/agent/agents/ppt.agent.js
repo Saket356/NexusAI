@@ -3,9 +3,11 @@ import { generatePpt } from "../utils/generatePpt.js"
 import { uploadToS3 } from "../utils/uploadToS3.js"
 import { getFromS3 } from "../utils/getFromS3.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { checkAgentLimit } from "../config/agentLimit.js"
 export const pptAgent = async (state) => {
     try {
-       
+        await checkAgentLimit(state.userId, "ppt")
+
         const llm = await getModel("ppt")
 
         const prompt = `
@@ -42,7 +44,7 @@ ${state.prompt}
 `
 
         const res = await llm.invoke(prompt)
-          await deductCredits(state.userId,"ppt")
+        await deductCredits(state.userId, "ppt")
         console.log("1. llm response received")
 
         const raw = String(res.content)
@@ -81,6 +83,12 @@ _Link expires in 24 hours._`
         }
     } catch (error) {
         console.log("ppt agent error:", error.message)
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
         return {
             aiResponse: "Failed to generate the presentation. Please try again."
         }

@@ -1,10 +1,11 @@
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages"
 import { getModel } from "../config/llmModels.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { checkAgentLimit } from "../config/agentLimit.js"
 
 export const chatAgent = async (state) => {
   try {
-    
+    await checkAgentLimit(state.userId, "chat")
     const llm = await getModel("chat")
 
     const baseSystemPrompt = `
@@ -65,13 +66,19 @@ End with a short conclusion.
     })
 
     const response = await llm.invoke(messages)
-     await deductCredits(state.userId,"chat")
+    await deductCredits(state.userId, "chat")
 
     return {
       aiResponse: response.content,
     }
   } catch (error) {
     console.log("chat agent error:", error.message)
+    if (error.status === 429) {
+      return {
+        ...state,
+        aiResponse: error.data.message
+      }
+    }
     return {
       aiResponse: "Something went wrong while generating the response. Please try again.",
     }

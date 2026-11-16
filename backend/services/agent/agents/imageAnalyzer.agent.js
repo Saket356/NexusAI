@@ -3,19 +3,21 @@ import { getModel } from "../config/llmModels.js"
 import fs from "fs"
 import { deductCredits } from "../utils/deductCredits.js"
 import dotenv from "dotenv"
+import { checkAgentLimit } from "../config/agentLimit.js"
 dotenv.config()
 export const imageAnalyzer = async (state) => {
     try {
-const llm = await getModel("imageAnalyzer");
+        await checkAgentLimit(state.userId, "image")
+        const llm = await getModel("imageAnalyzer");
 
 
 
-const test = await llm.invoke("Reply with only OK");
+        const test = await llm.invoke("Reply with only OK");
 
 
 
         const imageBuffer = fs.readFileSync(state.file.path)
-const base64Image = imageBuffer.toString("base64")
+        const base64Image = imageBuffer.toString("base64")
 
         const messages = [
             new SystemMessage(
@@ -49,23 +51,29 @@ Rules:
                 }
             )
         ]
-     
+
         const response = await llm.invoke(messages, { signal: AbortSignal.timeout(30000) })
-         
-        deductCredits(state.userId,"vision")
+
+        deductCredits(state.userId, "vision")
         return {
             ...state,
-            aiResponse:response.content
+            aiResponse: response.content
         }
 
     } catch (error) {
         console.log(`error reading file -${error}`)
-         return {
+        if (error.status === 429) {
+            return {
+                ...state,
+                aiResponse: error.data.message
+            }
+        }
+        return {
             ...state,
-            aiResponse:"failed to analyze file"
+            aiResponse: "failed to analyze file"
         }
     }
-    finally{
+    finally {
         fs.unlinkSync(state.file.path)
     }
 }

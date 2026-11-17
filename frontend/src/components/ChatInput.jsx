@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { X , Code2, FileText, Globe, ImageIcon, MessagesSquare, Mic, Paperclip, Presentation, Send, Zap } from 'lucide-react'
+import { X, Code2, FileText, Globe, ImageIcon, MessagesSquare, Mic, Paperclip, Presentation, Send, Zap, MicOff } from 'lucide-react'
 import sendMessage from '../features/sendMessage'
 import { createConversation } from '../features/createConversation'
 import { updateConversation } from '../features/updateConversation'
@@ -23,23 +23,75 @@ const ChatInput = () => {
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState('auto')
-  const dispatch = useDispatch()
   const { selectedConversation } = useSelector((state) => state.conversation)
-  const [selectedFile,setselectedFile]=useState(null)
-  const fileRef=useRef(null)
-
-
-
+  const [selectedFile, setselectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const fileRef = useRef(null)
 
-useEffect(() => {
-  if (selectedFile && selectedFile.type.startsWith('image/')) {
-    const url = URL.createObjectURL(selectedFile)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
+
+  const dispatch = useDispatch()
+
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (
+        let index = event.resultIndex;
+        index < event.results.length;
+        index++
+      ) {
+        transcript += event.results[index][0].transcript;
+      }
+
+      // console.log(transcript)
+      setValue(transcript)
+    }
+    recognition.onend = () => {
+      setListening(false)
+    }
+
+    recognitionRef.current = recognition;
+
+  }, []);
+
+  const toggleMic = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported.");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    } else {
+      recognitionRef.current.start();
+      setListening(true);
+    }
   }
-  setPreviewUrl(null)
-}, [selectedFile])
+
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selectedFile)
+      setPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setPreviewUrl(null)
+  }, [selectedFile])
   const handleSendMessage = async () => {
     const prompt = value.trim()
     if (!prompt || loading) return
@@ -75,18 +127,18 @@ useEffect(() => {
         role: 'user',
         content: prompt
       }))
-console.log(selectedFile)
-const formData=new FormData()
-formData.append("prompt",value.trim())
-formData.append("conversationId",conversation?._id)
-formData.append("agent",selectedAgent.toLowerCase())
-if (selectedFile) formData.append("file", selectedFile)
+      console.log(selectedFile)
+      const formData = new FormData()
+      formData.append("prompt", value.trim())
+      formData.append("conversationId", conversation?._id)
+      formData.append("agent", selectedAgent.toLowerCase())
+      if (selectedFile) formData.append("file", selectedFile)
       setselectedFile(null)
-    if (fileRef.current) fileRef.current.value = ''
-      const data = await sendMessage(formData)
-      
       if (fileRef.current) fileRef.current.value = ''
-     
+      const data = await sendMessage(formData)
+
+      if (fileRef.current) fileRef.current.value = ''
+
 
       if (!data) {
         console.log('no response from agent')
@@ -146,39 +198,39 @@ if (selectedFile) formData.append("file", selectedFile)
           })}
         </div>
 
-       {selectedFile && (
-  <div className="my-1">
-    <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-2 pr-3">
-      {previewUrl ? (
-        <img
-          src={previewUrl}
-          alt={selectedFile.name}
-          className="w-14 h-14 rounded-lg object-cover"
-        />
-      ) : (
-        <FileText size={16} className="text-red-400 ml-1" />
-      )}
+        {selectedFile && (
+          <div className="my-1">
+            <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-2 pr-3">
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt={selectedFile.name}
+                  className="w-14 h-14 rounded-lg object-cover"
+                />
+              ) : (
+                <FileText size={16} className="text-red-400 ml-1" />
+              )}
 
-      {selectedFile.type === "application/pdf" && (
-  <span className="text-[12px] text-slate-300 max-w-[200px] truncate">
-    {selectedFile.name}
-  </span>
-)}
+              {selectedFile.type === "application/pdf" && (
+                <span className="text-[12px] text-slate-300 max-w-[200px] truncate">
+                  {selectedFile.name}
+                </span>
+              )}
 
-      <button
-        type="button"
-        aria-label="Remove file"
-        onClick={() => {
-          setselectedFile(null)
-          if (fileRef.current) fileRef.current.value = ''
-        }}
-        className="flex items-center justify-center text-slate-500 hover:text-slate-200 bg-transparent border-none cursor-pointer"
-      >
-        <X size={14} />
-      </button>
-    </div>
-  </div>
-)}
+              <button
+                type="button"
+                aria-label="Remove file"
+                onClick={() => {
+                  setselectedFile(null)
+                  if (fileRef.current) fileRef.current.value = ''
+                }}
+                className="flex items-center justify-center text-slate-500 hover:text-slate-200 bg-transparent border-none cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
         <textarea
           value={value}
@@ -192,16 +244,15 @@ if (selectedFile) formData.append("file", selectedFile)
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <input type="file" accept='.pdf,image/*' hidden ref={fileRef} onChange={(e)=>{
-              const file=e.target.files[0]
-              if(file)
-              {
-                  setselectedFile(file)
+            <input type="file" accept='.pdf,image/*' hidden ref={fileRef} onChange={(e) => {
+              const file = e.target.files[0]
+              if (file) {
+                setselectedFile(file)
               }
-              
-            }}/>
+
+            }} />
             <button
-              onClick={()=>fileRef.current.click()}
+              onClick={() => fileRef.current.click()}
               type="button"
               aria-label="Attach file"
               className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06] transition-all duration-150 bg-transparent cursor-pointer"
@@ -210,11 +261,15 @@ if (selectedFile) formData.append("file", selectedFile)
             </button>
 
             <button
+              onClick={toggleMic}
               type="button"
               aria-label="Voice input"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-600 hover:text-slate-400 hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06] transition-all duration-150 bg-transparent cursor-pointer"
+              className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all duration-150 cursor-pointer ${listening
+                  ? "bg-red-500 text-white border-red-500"
+                  : "bg-transparent text-slate-600 hover:text-slate-400 hover:bg-white/[0.05] border-transparent"
+                }`}
             >
-              <Mic size={16} />
+              {listening ? <Mic size={16} /> : <MicOff size={16} />}
             </button>
           </div>
 

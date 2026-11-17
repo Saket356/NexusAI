@@ -29,7 +29,7 @@ app.get("/api/me",protect,getCurrentUser)
 
 
 app.get("/", (req,res)=>{
-    res.json({message:"backend running"})
+    res.json({message:"backend is running successfully"})
 })
 
 app.listen(port,()=>{
